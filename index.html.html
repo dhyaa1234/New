@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VisionX Pro - نظام القياس الذكي</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <style>
+        :root {
+            --primary: #00f0ff;
+            --secondary: #ff00f0;
+            --accent: #00ff9d;
+            --dark: #0a0a1a;
+            --light: #ffffff;
+            --premium: #ffd700;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            background: var(--dark);
+            font-family: 'Tajawal', sans-serif;
+            color: var(--light);
+        }
+        
+        #scene-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        .ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+        
+        .header {
+            text-align: center;
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        .main-title {
+            font-size: 4rem;
+            margin: 0;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(0, 240, 255, 0.5);
+        }
+        
+        .sub-title {
+            font-size: 1.5rem;
+            color: var(--accent);
+            margin-top: 0.5rem;
+            text-shadow: 0 0 15px var(--accent);
+        }
+        
+        .speed-display {
+            text-align: center;
+            margin-top: -50px;
+        }
+        
+        .speed-value {
+            font-size: 7rem;
+            font-weight: bold;
+            margin: 0;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 40px rgba(0, 240, 255, 0.7);
+        }
+        
+        .speed-unit {
+            font-size: 2rem;
+            color: var(--secondary);
+            margin-top: -1.5rem;
+        }
+        
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            pointer-events: auto;
+        }
+        
+        .action-btn {
+            background: rgba(0, 0, 0, 0.3);
+            color: var(--primary);
+            border: 2px solid var(--primary);
+            padding: 1.2rem 2.5rem;
+            font-size: 1.3rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            backdrop-filter: blur(5px);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 20px var(--primary);
+        }
+        
+        .action-btn.secondary {
+            color: var(--secondary);
+            border-color: var(--secondary);
+            box-shadow: 0 0 20px var(--secondary);
+        }
+        
+        .action-btn.premium {
+            color: var(--premium);
+            border-color: var(--premium);
+            box-shadow: 0 0 20px var(--premium);
+        }
+        
+        .action-btn:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 0 40px;
+        }
+        
+        .action-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.4), transparent);
+            transition: 0.5s;
+        }
+        
+        .action-btn:hover::before {
+            left: 100%;
+        }
+        
+        .watermark {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            font-size: 1rem;
+            color: var(--primary);
+            opacity: 0.7;
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 100;
+        }
+        
+        .watermark:hover {
+            opacity: 1;
+            text-shadow: 0 0 15px var(--primary);
+        }
+        
+        .admin-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: var(--dark);
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            box-shadow: 0 0 25px var(--accent);
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        
+        .admin-btn:hover {
+            transform: rotate(90deg) scale(1.1);
+        }
+        
+        /* لوحة التحكم */
+        .admin-panel {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+            overflow-y: auto;
+        }
+        
+        .admin-content {
+            background: var(--dark);
+            border: 2px solid var(--primary);
+            border-radius: 15px;
+            width: 90%;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            box-shadow: 0 0 50px var(--primary);
+            animation: panel-appear 0.5s ease-out;
+            position: relative;
+        }
+        
+        @keyframes panel-appear {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .admin-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--primary);
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        .admin-tab {
+            padding: 1rem 2rem;
+            cursor: pointer;
+            color: var(--light);
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .admin-tab.active {
+            color: var(--primary);
+            border-bottom: 3px solid var(--primary);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--primary);
+            border-radius: 5px;
+            color: var(--light);
+            font-size: 1rem;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            box-shadow: 0 0 10px var(--primary);
+        }
+        
+        .save-btn {
+            background: var(--primary);
+            color: var(--dark);
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 1rem;
+        }
+        
+        .save-btn:hover {
+            background: var(--accent);
+            transform: translateY(-3px);
+            box-shadow: 0 0 20px var(--primary);
+        }
+        
+        /* صفحة الاشتراكات للزوار */
+        .subscription-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .subscription-box {
+            background: var(--dark);
+            border: 2px solid var(--primary);
+            border-radius: 15px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 0 50px var(--primary);
+            animation: panel-appear 0.5s ease-out;
+            text-align: center;
+        }
+        
+        .subscription-title {
+            font-size: 2rem;
+            color: var(--premium);
+            margin-bottom: 1.5rem;
+            text-shadow: 0 0 20px var(--premium);
+        }
+        
+        .subscription-steps {
+            text-align: right;
+            margin-bottom: 2rem;
+        }
+        
+        .subscription-step {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: rgba(0, 240, 255, 0.1);
+            border-radius: 10px;
+            border: 1px solid var(--primary);
+        }
+        
+        .step-number {
+            width: 30px;
+            height: 30px;
+            background: var(--primary);
+            color: var(--dark);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 1rem;
+            font-weight: bold;
+        }
+        
+        .step-text {
+            flex: 1;
+            text-align: right;
+        }
+        
+        .subscribe-now-btn {
+            background: var(--premium);
+            color: var(--dark);
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin-top: 1rem;
+            box-shadow: 0 0 20px var(--premium);
+        }
+        
+        .subscribe-now-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 30px var(--premium);
+        }
+        
+        .close-subscription {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: var(--secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        
+        /* التكيف مع الشاشات الصغيرة */
+        @media (max-width: 768px) {
+            .main-title {
+                font-size: 2.5rem;
+            }
+            
+            .sub-title {
+                font-size: 1.2rem;
+            }
+            
+            .speed-value {
+                font-size: 4rem;
+            }
+            
+            .speed-unit {
+                font-size: 1.5rem;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .action-btn {
+                padding: 1rem;
+                font-size: 1.1rem;
+            }
+            
+            .admin-tabs {
+                flex-direction: column;
+            }
+            
+            .admin-tab {
+                padding: 0.8rem;
+            }
+            
+            .subscription-title {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- المشهد ثلاثي الأبعاد -->
+    <div id="scene-container"></div>
+    
+    <!-- واجهة المستخدم -->
+    <div class="ui-overlay">
+        <div class="header">
+            <h1 class="main-title">VisionX Pro</h1>
+            <p class="sub-title">نظام القياس الذكي بتقنية المستقبل</p>
+        </div>
+        
+        <div class="speed-display">
+            <div class="speed-value" id="speedValue">0.00</div>
+            <div class="speed-unit">ميجابت/ثانية</div>
+        </div>
+        
+        <div class="action-buttons">
+            <button class="action-btn" id="startBtn">بدء القياس</button>
+            <button class="action-btn secondary" id="shareBtn">مشاركة النتائج</button>
+            <button class="action-btn premium" id="subscribeBtn">الاشتراك المميز</button>
+        </div>
+    </div>
+    
+    <!-- حقوق الملكية -->
+    <div class="watermark" id="watermark">
+        © VisionX Pro - جميع الحقوق محفوظة
+    </div>
+    
+    <!-- زر الإدارة -->
+    <button class="admin-btn" id="adminBtn">⚙️</button>
+    
+    <!-- لوحة التحكم -->
+    <div class="admin-panel" id="adminPanel">
+        <div class="admin-content">
+            <div class="admin-tabs">
+                <div class="admin-tab active" data-tab="ads">الإعلانات</div>
+                <div class="admin-tab" data-tab="earnings">الأرباح</div>
+                <div class="admin-tab" data-tab="subscriptions">الاشتراكات</div>
+                <div class="admin-tab" data-tab="users">المستخدمون</div>
+                <div class="admin-tab" data-tab="settings">الإعدادات</div>
+                <div class="admin-tab" data-tab="copyright">حقوق الملكية</div>
+            </div>
+            
+            <div class="tab-content active" id="ads-tab">
+                <div class="form-group">
+                    <label class="form-label">كود AdSense</label>
+                    <textarea class="form-control" rows="5" id="adsCode"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">الروابط المختصرة (مفصولة بفواصل)</label>
+                    <textarea class="form-control" rows="3" id="shortLinks"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">معلومات التواصل للإعلان</label>
+                    <input type="text" class="form-control" id="contactInfo" placeholder="البريد الإلكتروني أو رقم الهاتف">
+                </div>
+                
+                <button class="save-btn" id="saveAds">حفظ الإعلانات</button>
+            </div>
+            
+            <div class="tab-content" id="earnings-tab">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                    <div style="background: rgba(0, 240, 255, 0.1); padding: 1rem; border-radius: 5px; border: 1px solid var(--primary);">
+                        <div style="font-size: 0.9rem; color: var(--primary);">أرباح اليوم</div>
+                        <div style="font-size: 2rem; font-weight: bold;" id="todayEarnings">$0.00</div>
+                    </div>
+                    
+                    <div style="background: rgba(0, 240, 255, 0.1); padding: 1rem; border-radius: 5px; border: 1px solid var(--primary);">
+                        <div style="font-size: 0.9rem; color: var(--primary);">إجمالي الأرباح</div>
+                        <div style="font-size: 2rem; font-weight: bold;" id="totalEarnings">$0.00</div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">حساب السحب (PayPal أو محفظة Binance)</label>
+                    <input type="text" class="form-control" id="withdrawalAccount" placeholder="مثال: paypal.me/yourname أو BNB wallet address">
+                </div>
+                
+                <button class="save-btn" id="saveEarnings">حفظ معلومات السحب</button>
+            </div>
+            
+            <div class="tab-content" id="subscriptions-tab">
+                <div class="form-group">
+                    <label class="form-label">سعر الاشتراك الأسبوعي (USD)</label>
+                    <input type="number" class="form-control" id="weeklyPrice" min="1" step="0.1">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">سعر الاشتراك الشهري (USD)</label>
+                    <input type="number" class="form-control" id="monthlyPrice" min="3" step="0.1">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">عنوان محفظة Binance</label>
+                    <input type="text" class="form-control" id="binanceWallet" placeholder="BNB Wallet Address">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">ميزات الاشتراك المميز (مفصولة بفواصل)</label>
+                    <textarea class="form-control" rows="5" id="premiumFeatures" placeholder="مثال: قياس غير محدود, تقارير مفصلة, إشعارات فورية"></textarea>
+                </div>
+                
+                <button class="save-btn" id="saveSubscriptions">حفظ إعدادات الاشتراكات</button>
+            </div>
+            
+            <div class="tab-content" id="users-tab">
+                <div class="form-group">
+                    <label class="form-label">بحث عن مستخدم</label>
+                    <input type="text" class="form-control" id="userSearch" placeholder="ابحث برمز المستخدم أو البريد الإلكتروني">
+                </div>
+                
+                <div id="usersList">
+                    <!-- سيتم ملئها بالمستخدمين -->
+                </div>
+            </div>
+            
+            <div class="tab-content" id="settings-tab">
+                <div class="form-group">
+                    <label class="form-label">اسم المستخدم للإدارة</label>
+                    <input type="text" class="form-control" id="adminUsername">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">كلمة المرور للإدارة</label>
+                    <input type="password" class="form-control" id="adminPassword">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">لون السمة الأساسي</label>
+                    <input type="color" class="form-control" id="primaryColor" value="#00f0ff">
+                </div>
+                
+                <button class="save-btn" id="saveSettings">حفظ الإعدادات</button>
+            </div>
+            
+            <div class="tab-content" id="copyright-tab">
+                <div class="form-group">
+                    <label class="form-label">اسم المالك</label>
+                    <input type="text" class="form-control" id="ownerName" value="[اسمك هنا]">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">رقم الشهادة</label>
+                    <input type="text" class="form-control" id="certificateNumber" value="VX-2023-XXXXXX" readonly>
+                </div>
+                
+                <button class="save-btn" id="saveCopyright">حفظ معلومات الملكية</button>
+            </div>
+            
+            <button id="closeAdmin" style="position: absolute; top: 15px; right: 15px; background: none; border: none; color: var(--secondary); font-size: 1.5rem; cursor: pointer;">✕</button>
+        </div>
+    </div>
+    
+    <!-- نافذة تسجيل الدخول -->
+    <div class="admin-panel" id="loginContainer">
+        <div class="admin-content">
+            <h2 style="color: var(--primary); text-align: center; margin-bottom: 2rem;">تسجيل الدخول للإدارة</h2>
+            <div class="form-group">
+                <label class="form-label">اسم المستخدم</label>
+                <input type="text" class="form-control" id="loginUsername">
+            </div>
+            <div class="form-group">
+                <label class="form-label">كلمة المرور</label>
+                <input type="password" class="form-control" id="loginPassword">
+            </div>
+            <button class="save-btn" id="loginBtn">دخول</button>
+        </div>
+    </div>
+    
+    <!-- صفحة الاشتراكات للزوار -->
+    <div class="subscription-overlay" id="subscriptionOverlay">
+        <div class="subscription-box">
+            <button class="close-subscription" id="closeSubscription">✕</button>
+            <h2 class="subscription-title">الاشتراك المميز</h2>
+            
+            <div class="subscription-steps">
+                <div class="subscription-step">
+                    <div class="step-number">1</div>
+                    <div class="step-text">اضغط على زر "اشترك الآن"</div>
+                </div>
+                
+                <div class="subscription-step">
+                    <div class="step-number">2</div>
+                    <div class="step-text">اختر الباقة المناسبة لك (أسبوعية أو شهرية)</div>
+                </div>
+                
+                <div class="subscription-step">
+                    <div class="step-number">3</div>
+                    <div class="step-text">سجل بريدك الإلكتروني للحصول على رمز المستخدم</div>
+                </div>
+                
+                <div class="subscription-step">
+                    <div class="step-number">4</div>
+                    <div class="step-text">ستتلقى تفاصيل الدفع على بريدك الإلكتروني</div>
+                </div>
+                
+                <div class="subscription-step">
+                    <div class="step-number">5</div>
+                    <div class="step-text">بعد التأكيد، سيتم تفعيل حسابك المميز</div>
+                </div>
+            </div>
+            
+            <button class="subscribe-now-btn" id="subscribeNowBtn">اشترك الآن</button>
+        </div>
+    </div>
+    
+    <!-- صفحة الدفع للزوار -->
+    <div class="subscription-overlay" id="paymentOverlay">
+        <div class="subscription-box">
+            <button class="close-subscription" id="closePayment">✕</button>
+            <h2 class="subscription-title">إتمام الاشتراك</h2>
+            
+            <div class="form-group">
+                <label class="form-label">البريد الإلكتروني</label>
+                <input type="email" class="form-control" id="userEmail" placeholder="لإرسال تفاصيل الاشتراك">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">اختر نوع الاشتراك</label>
+                <select class="form-control" id="subscriptionType">
+                    <option value="weekly">اشتراك أسبوعي - $<span id="weeklyPriceDisplay">5</span></option>
+                    <option value="monthly">اشتراك شهري - $<span id="monthlyPriceDisplay">15</span></option>
+                </select>
+            </div>
+            
+            <div style="background: rgba(0, 240, 255, 0.1); padding: 1rem; border-radius: 10px; border: 1px solid var(--primary); margin-bottom: 1.5rem;">
+                <p style="margin: 0;">بعد التسجيل، ستصلك تفاصيل الدفع على بريدك الإلكتروني</p>
+            </div>
+            
+            <button class="subscribe-now-btn" id="confirmSubscriptionBtn">تأكيد الاشتراك</button>
+        </div>
+    </div>
+    
+    <!-- صفحة نجاح الاشتراك -->
+    <div class="subscription-overlay" id="successOverlay">
+        <div class="subscription-box">
+            <h2 class="subscription-title">تم تقديم طلب اشتراكك بنجاح!</h2>
+            
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <p>سيصلك رمز المستخدم وتفاصيل الدفع على بريدك الإلكتروني خلال دقائق</p>
+                <p style="font-weight: bold; color: var(--accent); font-size: 1.2rem;">رمز المستخدم: <span id="userCode"></span></p>
+            </div>
+            
+            <button class="subscribe-now-btn" id="closeSuccessBtn">حسنًا</button>
+        </div>
+    </div>
+
+    <script>
+        // بيانات النظام
+        const systemData = JSON.parse(localStorage.getItem('visionXData')) || {
+            admin: {
+                username: "admin",
+                password: "visionx2023"
+            },
+            ads: {
+                adsCode: "",
+                shortLinks: [],
+                contactInfo: ""
+            },
+            earnings: {
+                today: 0,
+                total: 0,
+                withdrawalAccount: ""
+            },
+            subscriptions: {
+                weeklyPrice: 5,
+                monthlyPrice: 15,
+                binanceWallet: "",
+                premiumFeatures: ["قياس غير محدود", "تقارير مفصلة", "إشعارات فورية", "دعم فني سريع"]
+            },
+            users: [],
+            settings: {
+                primaryColor: "#00f0ff",
+                secondaryColor: "#ff00f0",
+                accentColor: "#00ff9d"
+            },
+            copyright: {
+                ownerName: "[اسمك هنا]",
+                certificateNumber: "VX-2023-" + Math.floor(Math.random() * 1000000).toString().padStart(6, '0')
+            }
+        };
+        
+        // تهيئة المشهد ثلاثي الأبعاد
+        let scene, camera, renderer, hologram, particles;
+        
+        function init3DScene() {
+            // إنشاء المشهد
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a1a);
+            
+            // إعداد الكاميرا
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+            
+            // إنشاء العارض
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('scene-container').appendChild(renderer.domElement);
+            
+            // إنشاء الهولوجرام
+            const geometry = new THREE.DodecahedronGeometry(2, 1);
+            const material = new THREE.MeshPhongMaterial({
+                color: 0x00f0ff,
+                transparent: true,
+                opacity: 0.2,
+                wireframe: true,
+                emissive: 0x00f0ff,
+                emissiveIntensity: 0.3,
+                shininess: 100
+            });
+            
+            hologram = new THREE.Mesh(geometry, material);
+            scene.add(hologram);
+            
+            // إضافة خطوط طاقة داخلية
+            const lineGeometry = new THREE.BufferGeometry();
+            const lineMaterial = new THREE.LineBasicMaterial({ 
+                color: 0xff00f0,
+                transparent: true,
+                opacity: 0.7
+            });
+            
+            const linePositions = [];
+            for (let i = 0; i < 100; i++) {
+                linePositions.push(
+                    (Math.random() - 0.5) * 5,
+                    (Math.random() - 0.5) * 5,
+                    (Math.random() - 0.5) * 5
+                );
+            }
+            
+            lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+            const lines = new THREE.Line(lineGeometry, lineMaterial);
+            hologram.add(lines);
+            
+            // إضافة جسيمات متوهجة
+            const particleGeometry = new THREE.BufferGeometry();
+            const particleMaterial = new THREE.PointsMaterial({
+                color: 0x00ff9d,
+                size: 0.1,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+            
+            const particlePositions = [];
+            for (let i = 0; i < 500; i++) {
+                particlePositions.push(
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10
+                );
+            }
+            
+            particleGeometry.setAttribute('position', new THREE.Float32BufferAttribute(particlePositions, 3));
+            particles = new THREE.Points(particleGeometry, particleMaterial);
+            scene.add(particles);
+            
+            // إضاءة ديناميكية
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+            
+            const directionalLight1 = new THREE.DirectionalLight(0x00f0ff, 1);
+            directionalLight1.position.set(1, 1, 1);
+            scene.add(directionalLight1);
+            
+            const directionalLight2 = new THREE.DirectionalLight(0xff00f0, 1);
+            directionalLight2.position.set(-1, -1, -1);
+            scene.add(directionalLight2);
+            
+            const directionalLight3 = new THREE.DirectionalLight(0x00ff9d, 1);
+            directionalLight3.position.set(0, -1, 1);
+            scene.add(directionalLight3);
+            
+            // التحكم بالمشهد
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableZoom = false;
+            controls.enablePan = false;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.5;
+            
+            // دورة التصيير
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                hologram.rotation.x += 0.005;
+                hologram.rotation.y += 0.008;
+                
+                const positions = particles.geometry.attributes.position.array;
+                for (let i = 0; i < positions.length; i += 3) {
+                    positions[i] += (Math.random() - 0.5) * 0.03;
+                    positions[i+1] += (Math.random() - 0.5) * 0.03;
+                    positions[i+2] += (Math.random() - 0.5) * 0.03;
+                    
+                    if (Math.abs(positions[i]) > 5) positions[i] = (Math.random() - 0.5) * 2;
+                    if (Math.abs(positions[i+1]) > 5) positions[i+1] = (Math.random() - 0.5) * 2;
+                    if (Math.abs(positions[i+2]) > 5) positions[i+2] = (Math.random() - 0.5) * 2;
+                }
+                particles.geometry.attributes.position.needsUpdate = true;
+                
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            
+            animate();
+            
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+        
+        // اختبار السرعة
+        async function runSpeedTest() {
+            const startBtn = document.getElementById('startBtn');
+            const speedValue = document.getElementById('speedValue');
+            
+            startBtn.disabled = true;
+            startBtn.textContent = 'جاري القياس...';
+            
+            let speed = 0;
+            const maxSpeed = 300 + Math.random() * 200;
+            
+            const speedInterval = setInterval(() => {
+                speed += Math.random() * 10;
+                speedValue.textContent = speed.toFixed(2);
+                
+                if (hologram) {
+                    const speedRatio = speed / maxSpeed;
+                    hologram.scale.set(1 + speedRatio * 0.5, 1 + speedRatio * 0.5, 1 + speedRatio * 0.5);
+                    hologram.material.emissiveIntensity = speedRatio * 0.7;
+                    hologram.children[0].material.color.setHSL(speedRatio * 0.7, 1, 0.5);
+                }
+                
+                if (speed >= maxSpeed) {
+                    clearInterval(speedInterval);
+                    startBtn.disabled = false;
+                    startBtn.textContent = 'إعادة القياس';
+                    
+                    recordEarnings(speed);
+                    
+                    setTimeout(() => {
+                        showSharePrompt();
+                    }, 1500);
+                }
+            }, 100);
+        }
+        
+        // تسجيل الأرباح
+        function recordEarnings(speed) {
+            const adEarnings = speed * 0.03;
+            const linkEarnings = systemData.ads.shortLinks.length * 0.1;
+            const today = new Date().toLocaleDateString('ar-SA');
+            
+            systemData.earnings.today += adEarnings + linkEarnings;
+            systemData.earnings.total += adEarnings + linkEarnings;
+            
+            localStorage.setItem('visionXData', JSON.stringify(systemData));
+            updateEarningsDisplay();
+        }
+        
+        // تحديث عرض الأرباح
+        function updateEarningsDisplay() {
+            document.getElementById('todayEarnings').textContent = `$${systemData.earnings.today.toFixed(2)}`;
+            document.getElementById('totalEarnings').textContent = `$${systemData.earnings.total.toFixed(2)}`;
+        }
+        
+        // عرض موجه المشاركة
+        function showSharePrompt() {
+            if (confirm('✨ نتائج مذهلة! هل تريد مشاركة هذا النظام مع أصدقائك؟')) {
+                shareSystem();
+            }
+        }
+        
+        // مشاركة النظام
+        function shareSystem() {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'VisionX Pro',
+                    text: 'جرب هذا النظام المذهل لقياس سرعة الإنترنت بتقنية ثلاثية الأبعاد!',
+                    url: window.location.href
+                }).then(() => {
+                    systemData.earnings.today += 0.5;
+                    systemData.earnings.total += 0.5;
+                    localStorage.setItem('visionXData', JSON.stringify(systemData));
+                    updateEarningsDisplay();
+                }).catch(err => {
+                    console.log('Error sharing:', err);
+                    copyToClipboard();
+                });
+            } else {
+                copyToClipboard();
+            }
+        }
+        
+        // نسخ الرابط
+        function copyToClipboard() {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+                alert('تم نسخ رابط النظام! يمكنك الآن مشاركته مع أي شخص.');
+                systemData.earnings.today += 0.3;
+                systemData.earnings.total += 0.3;
+                localStorage.setItem('visionXData', JSON.stringify(systemData));
+                updateEarningsDisplay();
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                prompt('انسخ هذا الرابط لمشاركته:', window.location.href);
+            });
+        }
+        
+        // إنشاء رمز مستخدم عشوائي
+        function generateUserId() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < 12; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+        
+        // عرض صفحة نجاح الاشتراك
+        function showSuccessMessage(userId) {
+            document.getElementById('subscriptionOverlay').style.display = 'none';
+            document.getElementById('paymentOverlay').style.display = 'none';
+            document.getElementById('successOverlay').style.display = 'flex';
+            document.getElementById('userCode').textContent = userId;
+        }
+        
+        // تأكيد الاشتراك
+        function confirmSubscription() {
+            const email = document.getElementById('userEmail').value;
+            const planType = document.getElementById('subscriptionType').value;
+            const amount = planType === 'weekly' ? systemData.subscriptions.weeklyPrice : systemData.subscriptions.monthlyPrice;
+            
+            if (!email) {
+                alert('الرجاء إدخال البريد الإلكتروني');
+                return;
+            }
+            
+            const userId = generateUserId();
+            const newUser = {
+                id: userId,
+                email: email,
+                plan: planType,
+                paymentDate: new Date().toLocaleDateString('ar-SA'),
+                expiryDate: planType === 'weekly' ? 
+                    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('ar-SA') :
+                    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('ar-SA'),
+                status: 'pending',
+                amount: amount
+            };
+            
+            systemData.users.push(newUser);
+            
+            // تسجيل الأرباح
+            systemData.earnings.today += amount;
+            systemData.earnings.total += amount;
+            
+            localStorage.setItem('visionXData', JSON.stringify(systemData));
+            updateEarningsDisplay();
+            
+            showSuccessMessage(userId);
+        }
+        
+        // تحديث قائمة المستخدمين
+        function updateUsersList(searchTerm = '') {
+            const usersList = document.getElementById('usersList');
+            usersList.innerHTML = '';
+            
+            const filteredUsers = systemData.users.filter(user => 
+                user.id.includes(searchTerm) || 
+                (user.email && user.email.includes(searchTerm))
+            );
+            
+            if (filteredUsers.length === 0) {
+                usersList.innerHTML = '<p style="text-align: center; color: var(--accent);">لا يوجد مستخدمون مسجلون</p>';
+                return;
+            }
+            
+            filteredUsers.forEach(user => {
+                const userCard = document.createElement('div');
+                userCard.className = 'user-card';
+                userCard.innerHTML = `
+                    <div class="user-info">
+                        <div class="user-id">${user.id}</div>
+                        <div class="user-plan">${user.plan === 'weekly' ? 'أسبوعي' : 'شهري'} - ${user.status === 'active' ? 'نشط' : 'قيد الانتظار'}</div>
+                        <div>${user.email || 'لا يوجد بريد'}</div>
+                        <div>ينتهي في: ${user.expiryDate}</div>
+                    </div>
+                    <div class="user-actions">
+                        <button class="confirm-btn" data-user="${user.id}">${user.status === 'active' ? 'تعطيل' : 'تفعيل'}</button>
+                    </div>
+                `;
+                usersList.appendChild(userCard);
+            });
+            
+            document.querySelectorAll('.confirm-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const userId = this.getAttribute('data-user');
+                    toggleUserStatus(userId);
+                });
+            });
+        }
+        
+        // تبديل حالة المستخدم
+        function toggleUserStatus(userId) {
+            const user = systemData.users.find(u => u.id === userId);
+            if (user) {
+                user.status = user.status === 'active' ? 'inactive' : 'active';
+                localStorage.setItem('visionXData', JSON.stringify(systemData));
+                updateUsersList(document.getElementById('userSearch').value);
+                alert(`تم ${user.status === 'active' ? 'تفعيل' : 'تعطيل'} المستخدم بنجاح`);
+            }
+        }
+        
+        // تهيئة لوحة التحكم
+        function initAdminPanel() {
+            document.getElementById('adsCode').value = systemData.ads.adsCode;
+            document.getElementById('shortLinks').value = systemData.ads.shortLinks.join(', ');
+            document.getElementById('contactInfo').value = systemData.ads.contactInfo;
+            
+            document.getElementById('todayEarnings').textContent = `$${systemData.earnings.today.toFixed(2)}`;
+            document.getElementById('totalEarnings').textContent = `$${systemData.earnings.total.toFixed(2)}`;
+            document.getElementById('withdrawalAccount').value = systemData.earnings.withdrawalAccount;
+            
+            document.getElementById('weeklyPrice').value = systemData.subscriptions.weeklyPrice;
+            document.getElementById('monthlyPrice').value = systemData.subscriptions.monthlyPrice;
+            document.getElementById('binanceWallet').value = systemData.subscriptions.binanceWallet;
+            document.getElementById('premiumFeatures').value = systemData.subscriptions.premiumFeatures.join(', ');
+            
+            document.getElementById('adminUsername').value = systemData.admin.username;
+            document.getElementById('adminPassword').value = systemData.admin.password;
+            document.getElementById('primaryColor').value = systemData.settings.primaryColor;
+            
+            document.getElementById('ownerName').value = systemData.copyright.ownerName;
+            document.getElementById('certificateNumber').value = systemData.copyright.certificateNumber;
+            
+            // تحديث أسعار الاشتراك المعروضة للزوار
+            document.getElementById('weeklyPriceDisplay').textContent = systemData.subscriptions.weeklyPrice;
+            document.getElementById('monthlyPriceDisplay').textContent = systemData.subscriptions.monthlyPrice;
+            
+            updateUsersList();
+            
+            document.querySelectorAll('.admin-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    tab.classList.add('active');
+                    document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+                });
+            });
+            
+            document.getElementById('userSearch').addEventListener('input', function() {
+                updateUsersList(this.value);
+            });
+            
+            document.getElementById('saveAds').addEventListener('click', () => {
+                systemData.ads.adsCode = document.getElementById('adsCode').value;
+                systemData.ads.shortLinks = document.getElementById('shortLinks').value
+                    .split(',')
+                    .map(link => link.trim())
+                    .filter(link => link !== '');
+                systemData.ads.contactInfo = document.getElementById('contactInfo').value;
+                
+                localStorage.setItem('visionXData', JSON.stringify(systemData));
+                alert('تم حفظ إعدادات الإعلانات بنجاح!');
+            });
+            
+            document.getElementById('saveEarnings').addEventListener('click', () => {
+                systemData.earnings.withdrawalAccount = document.getElementById('withdrawalAccount').value;
+                localStorage.setItem('visionXData', JSON.stringify(systemData));
+                alert('تم حفظ معلومات السحب بنجاح!');
+            });
+            
+            document.getElementById('saveSubscriptions').addEventListener('click', () => {
+                systemData.subscriptions.weeklyPrice = parseFloat(document.getElementById('weeklyPrice').value) || 5;
+                systemData.subscriptions.monthlyPrice = parseFloat(document.getElementById('monthlyPrice').value) || 15;
+                systemData.subscriptions.binanceWallet = document.getElementById('binanceWallet').value;
+                systemData.subscriptions.premiumFeatures = document.getElementById('premiumFeatures').value
+                    .split(',')
+                    .map(feature => feature.trim())
+                    .filter(feature => feature !== '');
+                
+                // تحديث الأسعار المعروضة للزوار
+                document.getElementById('weeklyPriceDisplay').textContent = systemData.subscriptions.weeklyPrice;
+                document.getElementById('monthlyPriceDisplay').textContent = systemData.subscriptions.monthlyPrice;
+                
+                localStorage.setItem('visionXData', JSON.stringify(systemData));
+                alert('تم حفظ إعدادات الاشتراكات بنجاح!');
+            });
+            
+            document.getElementById('saveSettings').addEventListener('click', () => {
+                systemData.admin.username = document.getElementById('adminUsername').value;
+                systemData.admin.password = document.getElementById('adminPassword').value;
+                systemData.settings.primaryColor = document.getElementById('primaryColor').value;
+                
+                document.documentElement.style.setProperty('--primary', systemData.settings.primaryColor);
+                
+                localStorage.setItem('visionXData', JSON.stringify(systemData));
+                alert('تم حفظ الإعدادات العامة بنجاح!');
+            });
+            
+            document.getElementById('saveCopyright').addEventListener('click', () => {
+                systemData.copyright.ownerName = document.getElementById('ownerName').value;
+                localStorage.setItem('visionXData', JSON.stringify(systemData));
+                alert('تم حفظ معلومات الملكية بنجاح!');
+            });
+        }
+        
+        // تهيئة التطبيق
+        window.addEventListener('DOMContentLoaded', () => {
+            init3DScene();
+            initAdminPanel();
+            
+            document.getElementById('startBtn').addEventListener('click', runSpeedTest);
+            document.getElementById('shareBtn').addEventListener('click', shareSystem);
+            
+            document.getElementById('adminBtn').addEventListener('click', () => {
+                document.getElementById('loginContainer').style.display = 'block';
+            });
+            
+            document.getElementById('loginBtn').addEventListener('click', () => {
+                const username = document.getElementById('loginUsername').value;
+                const password = document.getElementById('loginPassword').value;
+                
+                if (username === systemData.admin.username && password === systemData.admin.password) {
+                    document.getElementById('loginContainer').style.display = 'none';
+                    document.getElementById('adminPanel').style.display = 'block';
+                } else {
+                    alert('بيانات الدخول غير صحيحة!');
+                }
+            });
+            
+            document.getElementById('closeAdmin').addEventListener('click', () => {
+                document.getElementById('adminPanel').style.display = 'none';
+            });
+            
+            document.getElementById('subscribeBtn').addEventListener('click', () => {
+                document.getElementById('subscriptionOverlay').style.display = 'flex';
+            });
+            
+            document.getElementById('closeSubscription').addEventListener('click', () => {
+                document.getElementById('subscriptionOverlay').style.display = 'none';
+            });
+            
+            document.getElementById('subscribeNowBtn').addEventListener('click', () => {
+                document.getElementById('subscriptionOverlay').style.display = 'none';
+                document.getElementById('paymentOverlay').style.display = 'flex';
+            });
+            
+            document.getElementById('closePayment').addEventListener('click', () => {
+                document.getElementById('paymentOverlay').style.display = 'none';
+            });
+            
+            document.getElementById('confirmSubscriptionBtn').addEventListener('click', confirmSubscription);
+            
+            document.getElementById('closeSuccessBtn').addEventListener('click', () => {
+                document.getElementById('successOverlay').style.display = 'none';
+            });
+            
+            document.getElementById('watermark').addEventListener('click', () => {
+                alert(`نظام VisionX Pro\nالإصدار الاحترافي\nالمالك: ${systemData.copyright.ownerName}\nالشهادة: ${systemData.copyright.certificateNumber}`);
+            });
+            
+            document.getElementById('adminPanel').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('adminPanel')) {
+                    document.getElementById('adminPanel').style.display = 'none';
+                }
+            });
+            
+            document.getElementById('loginContainer').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('loginContainer')) {
+                    document.getElementById('loginContainer').style.display = 'none';
+                }
+            });
+            
+            document.getElementById('subscriptionOverlay').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('subscriptionOverlay')) {
+                    document.getElementById('subscriptionOverlay').style.display = 'none';
+                }
+            });
+            
+            document.getElementById('paymentOverlay').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('paymentOverlay')) {
+                    document.getElementById('paymentOverlay').style.display = 'none';
+                }
+            });
+            
+            document.getElementById('successOverlay').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('successOverlay')) {
+                    document.getElementById('successOverlay').style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
